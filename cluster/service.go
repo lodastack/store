@@ -1,16 +1,24 @@
 package cluster
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/lodastack/log"
 	"github.com/lodastack/store/model"
+	"github.com/lodastack/store/store"
+	"github.com/lodastack/store/tcp"
 )
 
 const (
 	connectionTimeout = 10 * time.Second
+)
+
+const (
+	muxRaftHeader = 1 // Raft consensus communications
+	muxMetaHeader = 2 // Cluster meta communications
 )
 
 // Transport is the interface the network service must provide.
@@ -76,6 +84,15 @@ type Store interface {
 
 	// APIPeers return the map of Raft addresses to API addresses.
 	APIPeers() (map[string]string, error)
+
+	// Nodes returns the list of current peers.
+	Nodes() ([]string, error)
+
+	// WaitForLeader blocks until a leader is detected, or the timeout expires.
+	WaitForLeader(timeout time.Duration) (string, error)
+
+	// Close closes the store. If wait is true, waits for a graceful shutdown.
+	Close(wait bool) error
 }
 
 // Service allows access to the cluster and associated meta data,
@@ -92,13 +109,31 @@ type Service struct {
 }
 
 // NewService returns a new instance of the cluster service.
-func NewService(tn Transport, s Store) *Service {
+func NewService(bind string, dir string, joinAddr string) (*Service, error) {
+	// serve mux TCP
+	ln, err := net.Listen("tcp", bind)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen on %s: %s", bind, err.Error())
+	}
+	mux := tcp.NewMux(ln, nil)
+	go mux.Serve()
+
+	// Start up mux and get transports for cluster.
+	raftTn := mux.Listen(muxRaftHeader)
+	s := store.New(dir, raftTn)
+	if err := s.Open(joinAddr == ""); err != nil {
+		return nil, fmt.Errorf("failed to open store: %s", err.Error())
+	}
+
+	// Create and configure cluster service.
+	tn := mux.Listen(muxMetaHeader)
+
 	return &Service{
 		tn:     tn,
 		store:  s,
 		addr:   tn.Addr(),
 		logger: log.New("INFO", "cluster", model.LogBackend),
-	}
+	}, nil
 }
 
 // Open opens the Service.
@@ -117,6 +152,9 @@ func (s *Service) Open() error {
 func (s *Service) Close() error {
 	if s.closed() {
 		return nil // Already closed.
+	}
+	if err := s.store.Close(true); err != nil {
+		return err
 	}
 	close(s.done)
 	s.tn.Close()
@@ -137,6 +175,36 @@ func (s *Service) closed() bool {
 // Addr returns the address the service is listening on.
 func (s *Service) Addr() string {
 	return s.addr.String()
+}
+
+// JoinCluster joins the cluster via TCP, reachable at addr, to the cluster.
+func (s *Service) JoinCluster(server, addr string) error {
+	return s.Write(server, map[string][]byte{
+		"addr": []byte(addr),
+		"type": TypJoin,
+	})
+}
+
+// PublishAPIAddr public API addr in cluster
+func (s *Service) PublishAPIAddr(apiAddr string, delay time.Duration, timeout time.Duration) error {
+	tck := time.NewTicker(delay)
+	defer tck.Stop()
+	tmr := time.NewTimer(timeout)
+	defer tmr.Stop()
+
+	for {
+		select {
+		case <-tck.C:
+			if err := s.SetPeer(s.Addr(), apiAddr); err != nil {
+				log.Errorf("failed to set peer for %s to %s: %s (retrying)",
+					s.Addr(), apiAddr, err.Error())
+				continue
+			}
+			return nil
+		case <-tmr.C:
+			return fmt.Errorf("set peer timeout expired")
+		}
+	}
 }
 
 func (s *Service) serve() error {

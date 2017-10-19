@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/lodastack/store/model"
 
@@ -82,6 +83,16 @@ func (s *Service) Peers() (map[string]map[string]string, error) {
 		}
 	}
 	return peerMap, nil
+}
+
+// Nodes returns the list of current peers.
+func (s *Service) Nodes() ([]string, error) {
+	return s.store.Nodes()
+}
+
+// WaitForLeader blocks until a leader is detected, or the timeout expires.
+func (s *Service) WaitForLeader(timeout time.Duration) (string, error) {
+	return s.store.WaitForLeader(timeout)
 }
 
 // Remove removes a node from the store, specified by addr.
@@ -257,6 +268,37 @@ func (s *Service) WriteLeader(msg interface{}) error {
 		return fmt.Errorf("no leader available")
 	}
 	conn, err := s.tn.Dial(s.store.Leader(), connectionTimeout)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	b, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	if _, err := conn.Write(b); err != nil {
+		return err
+	}
+
+	// Wait for the response and verify the operation went through.
+	resp := response{}
+	d := json.NewDecoder(conn)
+	err = d.Decode(&resp)
+	if err != nil {
+		return err
+	}
+
+	if resp.Code != 0 {
+		return fmt.Errorf(resp.Message)
+	}
+	return nil
+}
+
+// Write writes TCP msg to given server, for TCP join cluster
+func (s *Service) Write(server string, msg interface{}) error {
+	conn, err := s.tn.Dial(server, connectionTimeout)
 	if err != nil {
 		return err
 	}
