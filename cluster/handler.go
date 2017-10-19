@@ -418,7 +418,7 @@ func (s *Service) handleJoin(msg map[string][]byte, conn net.Conn) {
 	}
 
 	// Join the cluster.
-	if err := s.store.Join(string(addr)); err != nil {
+	if err := s.Join(string(addr)); err != nil {
 		resp := response{1, err.Error()}
 		s.writeResponse(resp, conn)
 		return
