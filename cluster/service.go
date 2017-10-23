@@ -93,6 +93,9 @@ type Store interface {
 
 	// Close closes the store. If wait is true, waits for a graceful shutdown.
 	Close(wait bool) error
+
+	// Statistics returns statistics for periodic monitoring.
+	Statistics(tags map[string]string) []model.Statistic
 }
 
 // Service allows access to the cluster and associated meta data,
@@ -170,6 +173,11 @@ func (s *Service) closed() bool {
 	default:
 	}
 	return s.done == nil
+}
+
+// Statistics returns statistics for periodic monitoring.
+func (s *Service) Statistics(tags map[string]string) []model.Statistic {
+	return s.store.Statistics(tags)
 }
 
 // Addr returns the address the service is listening on.
