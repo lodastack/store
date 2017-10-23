@@ -99,9 +99,12 @@ func (c *Cache) Statistics(tags map[string]string) []model.Statistic {
 			statCacheMemoryBytes:  c.size,
 			statCachePurgeCount:   atomic.LoadInt64(&c.stats.PurgeCount),
 			statAddCount:          atomic.LoadInt64(&c.stats.AddCount),
+			statHitCount:          atomic.LoadInt64(&c.stats.HitCount),
+			statMissCount:         atomic.LoadInt64(&c.stats.MissCount),
 			statGetCount:          atomic.LoadInt64(&c.stats.GetCount),
 			statRemoveCount:       atomic.LoadInt64(&c.stats.RemoveCount),
 			statRemoveBucketCount: atomic.LoadInt64(&c.stats.RemoveBucketCount),
+			statRemoveOldestCount: atomic.LoadInt64(&c.stats.RemoveOldestCount),
 			statKeysCount:         c.Len(),
 		},
 	}}
