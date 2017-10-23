@@ -176,7 +176,7 @@ func (s *Store) raftConfig() *raft.Config {
 
 // Statistics returns statistics for periodic monitoring.
 func (s *Store) Statistics(tags map[string]string) []model.Statistic {
-	return s.cache.Statistics(nil)
+	return s.cache.Statistics(tags)
 }
 
 // Open opens the store. If enableSingle is set, and there are no existing peers,
