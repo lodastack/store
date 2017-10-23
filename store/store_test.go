@@ -303,7 +303,7 @@ func Test_MultiNode_SetGetRemoveSession(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 	v = s1.GetSession("u1")
 	if v != nil {
-		t.Fatalf("funexpected results for get: %s - %s ", v.(string), nil)
+		t.Fatalf("funexpected results for get: %s - %v ", v.(string), nil)
 	}
 
 }
