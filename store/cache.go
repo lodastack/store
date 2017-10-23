@@ -79,6 +79,7 @@ func NewCache(maxSize uint64, onEvict EvictCallback) *Cache {
 		items:     make(map[string]map[string]*list.Element),
 		evictList: list.New(),
 		onEvict:   onEvict,
+		stats:     &CacheStatistics{},
 		logger:    log.New("INFO", "cache", model.LogBackend),
 	}
 	return c
