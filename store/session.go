@@ -14,6 +14,7 @@ type Session interface {
 	Delete(key interface{})
 }
 
+// NewSession returns a new session
 func NewSession() *LodaSession {
 	m := make(map[interface{}]interface{})
 	return &LodaSession{SessionMap: m}

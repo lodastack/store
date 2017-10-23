@@ -29,7 +29,10 @@ import (
 	"github.com/hashicorp/raft-boltdb"
 )
 
-var bucketNotFound = errors.New("bucket not found")
+// ErrBucketNotFound bucket not found error
+var ErrBucketNotFound = errors.New("bucket not found")
+
+// ErrNotLeader not leader error
 var ErrNotLeader = raft.ErrNotLeader
 
 const (
@@ -169,6 +172,11 @@ func (s *Store) raftConfig() *raft.Config {
 	config.SnapshotThreshold = 500
 	config.ShutdownOnRemove = false
 	return config
+}
+
+// Statistics returns statistics for periodic monitoring.
+func (s *Store) Statistics(tags map[string]string) []model.Statistic {
+	return s.cache.Statistics(nil)
 }
 
 // Open opens the store. If enableSingle is set, and there are no existing peers,
@@ -380,7 +388,7 @@ func (s *Store) View(bucket, key []byte) ([]byte, error) {
 		func(tx *bolt.Tx) error {
 			b := tx.Bucket(bucket)
 			if b == nil {
-				return bucketNotFound
+				return ErrBucketNotFound
 			}
 
 			data := b.Get(key)
@@ -433,9 +441,9 @@ func (s *Store) Update(bucket []byte, key []byte, value []byte) error {
 	return r.error
 }
 
-// View bucket by keyPerfix.
+// ViewPrefix views bucket by keyPerfix.
 func (s *Store) ViewPrefix(bucket, keyPrefix []byte) (map[string][]byte, error) {
-	var result map[string][]byte = make(map[string][]byte, 0)
+	result := make(map[string][]byte, 0)
 	tx, err := s.db.Begin(true)
 	if err != nil {
 		s.logger.Error("begin db fail: ", err.Error())
@@ -446,7 +454,7 @@ func (s *Store) ViewPrefix(bucket, keyPrefix []byte) (map[string][]byte, error) 
 	b := tx.Bucket(bucket)
 	if b == nil {
 		s.logger.Error("failed to copen bucket: ", string(bucket))
-		return result, bucketNotFound
+		return result, ErrBucketNotFound
 	}
 	c := b.Cursor()
 	for k, v := c.Seek(keyPrefix); len(k) != 0 && strings.HasPrefix(string(k), string(keyPrefix)); k, v = c.Next() {
@@ -524,7 +532,7 @@ func (s *Store) CreateBucket(name []byte) error {
 	return r.error
 }
 
-// Create a bucket if not exist.
+// CreateBucketIfNotExist create a bucket if not exist.
 func (s *Store) CreateBucketIfNotExist(name []byte) error {
 	if s.raft.State() != raft.Leader {
 		return ErrNotLeader
@@ -555,6 +563,7 @@ func (s *Store) CreateBucketIfNotExist(name []byte) error {
 	return r.error
 }
 
+// RemoveKey remove a key from store
 func (s *Store) RemoveKey(bucket, key []byte) error {
 	if s.raft.State() != raft.Leader {
 		return ErrNotLeader
@@ -865,7 +874,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		err := f.applyRestore(c.Sub)
 		return &fsmGenericResponse{error: err}
 	default:
-		err := fmt.Errorf("unrecognized command op: %s", c.Typ)
+		err := fmt.Errorf("unrecognized command op: %v", c.Typ)
 		f.logger.Printf(err.Error())
 		return &fsmGenericResponse{error: err}
 	}
@@ -978,7 +987,7 @@ func (f *fsm) applyUpdate(sub json.RawMessage) error {
 	return f.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(rows[0].Bucket)
 		if b == nil {
-			return bucketNotFound
+			return ErrBucketNotFound
 		}
 		err := b.Put(rows[0].Key, rows[0].Value)
 
@@ -1005,7 +1014,7 @@ func (f *fsm) applyRemoveKey(sub json.RawMessage) error {
 	return f.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(rows[0].Bucket)
 		if b == nil {
-			return bucketNotFound
+			return ErrBucketNotFound
 		}
 		err := b.Delete(rows[0].Key)
 
@@ -1029,7 +1038,7 @@ func (f *fsm) applyBatch(sub json.RawMessage) error {
 		for _, row := range rows {
 			b := tx.Bucket(row.Bucket)
 			if b == nil {
-				return bucketNotFound
+				return ErrBucketNotFound
 			}
 			if err := b.Put(row.Key, row.Value); err != nil {
 				return err
