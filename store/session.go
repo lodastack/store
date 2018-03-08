@@ -4,7 +4,10 @@ import (
 	"sync"
 )
 
+const maximumOnline = 3
+
 // Session interface
+// key is user token, value is user id.
 type Session interface {
 	// Get returns the session value associated to the given key.
 	Get(key interface{}) interface{}
@@ -59,12 +62,16 @@ func (ls *LodaSession) clean(uid interface{}) {
 	}
 	ls.Mux.Lock()
 	defer ls.Mux.Unlock()
+
+	online := 1
 	for k, v := range ls.SessionMap {
 		if valueStr, ok := v.(string); ok {
 			if valueStr == uidStr {
-				ls.SessionMap[k] = nil
-				delete(ls.SessionMap, k)
-				break
+				online++
+				if online > maximumOnline {
+					ls.SessionMap[k] = nil
+					delete(ls.SessionMap, k)
+				}
 			}
 		}
 	}

@@ -29,14 +29,27 @@ func Test_Clean(t *testing.T) {
 	if s == nil {
 		t.Fatalf("new session failed: %v", s)
 	}
-	s.Set("token", "username")
+	s.Set("token1", "username")
 	s.Set("token2", "username")
-	res := s.Get("token")
-	username, ok := res.(string)
-	if ok {
-		t.Fatalf("should not get this token: %s", username)
-	}
+	s.Set("token3", "username")
+	s.Set("token4", "username")
+
+	res := s.Get("token1")
+	_, ok1 := res.(string)
 	res = s.Get("token2")
+	_, ok2 := res.(string)
+	res = s.Get("token3")
+	_, ok3 := res.(string)
+	if ok1 && ok2 && ok3 {
+		t.Fatalf("should not get all token: %v %v %v", ok1, ok2, ok3)
+	}
+
+	res = s.Get("token4")
+	username, ok := res.(string)
+	if !ok {
+		t.Fatalf("should get this token: %s", username)
+	}
+	res = s.Get("token4")
 	username = res.(string)
 	if username != "username" {
 		t.Fatalf("get failed failed: %s - %s", username, "username")
