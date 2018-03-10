@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lodastack/log"
+	"github.com/lodastack/store/log"
 	"github.com/lodastack/store/model"
 	"github.com/lodastack/store/store"
 	"github.com/lodastack/store/tcp"
@@ -108,7 +108,7 @@ type Service struct {
 	wg   sync.WaitGroup
 	done chan struct{} // Is the service closing or closed?
 
-	logger *log.Logger
+	logger log.Logger
 }
 
 // NewService returns a new instance of the cluster service.
@@ -116,38 +116,40 @@ func NewService(bind string, dir string, joinAddr string) (*Service, error) {
 	// serve mux TCP
 	ln, err := net.Listen("tcp", bind)
 	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %s: %s", bind, err.Error())
+		return nil, fmt.Errorf("failed to listen on %s: %s", bind, err)
 	}
-	mux := tcp.NewMux(ln, nil)
+	mux := tcp.NewMux(ln, nil, nil)
 	go mux.Serve()
 
 	// Start up mux and get transports for cluster.
 	raftTn := mux.Listen(muxRaftHeader)
-	s := store.New(dir, raftTn)
+	s := store.New(dir, raftTn, nil)
 	if err := s.Open(joinAddr == ""); err != nil {
-		return nil, fmt.Errorf("failed to open store: %s", err.Error())
+		return nil, fmt.Errorf("failed to open store: %s", err)
 	}
 
 	// Create and configure cluster service.
 	tn := mux.Listen(muxMetaHeader)
 
 	return &Service{
-		tn:     tn,
-		store:  s,
-		addr:   tn.Addr(),
-		logger: log.New("INFO", "cluster", model.LogBackend),
+		tn:    tn,
+		store: s,
+		addr:  tn.Addr(),
 	}, nil
 }
 
 // Open opens the Service.
 func (s *Service) Open() error {
+	if s.logger == nil {
+		s.logger = log.New()
+	}
 	if !s.closed() {
 		return nil // Already open.
 	}
 	s.done = make(chan struct{})
 
 	go s.serve()
-	s.logger.Println("service listening on", s.tn.Addr())
+	s.logger.Printf("service listening on %s", s.tn.Addr())
 	return nil
 }
 
@@ -204,8 +206,8 @@ func (s *Service) PublishAPIAddr(apiAddr string, delay time.Duration, timeout ti
 		select {
 		case <-tck.C:
 			if err := s.SetPeer(s.Addr(), apiAddr); err != nil {
-				log.Errorf("failed to set peer for %s to %s: %s (retrying)",
-					s.Addr(), apiAddr, err.Error())
+				s.logger.Printf("failed to set peer for %s to %s: %s (retrying)",
+					s.Addr(), apiAddr, err)
 				continue
 			}
 			return nil
@@ -224,10 +226,14 @@ func (s *Service) serve() error {
 		default:
 			conn, err := s.tn.Accept()
 			if err != nil {
-				s.logger.Errorf("accept error: %s", err.Error())
+				s.logger.Printf("accept error: %s", err.Error())
 			}
 			s.wg.Add(1)
-			go s.handleConn(conn)
+			go func() {
+				if err := s.handleConn(conn); err != nil {
+					s.logger.Printf("handleConn error: %s", err)
+				}
+			}()
 		}
 	}
 }

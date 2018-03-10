@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/lodastack/log"
+	"github.com/lodastack/store/log"
 	"github.com/lodastack/store/model"
 )
 
@@ -25,7 +25,7 @@ type Cache struct {
 
 	enable bool
 	stats  *CacheStatistics
-	logger *log.Logger
+	logger log.Logger
 }
 
 // entry is used to hold a value in the evictList.
@@ -68,7 +68,7 @@ type CacheStatistics struct {
 }
 
 // NewCache constructs an LRU cache of the given size.
-func NewCache(maxSize uint64, onEvict EvictCallback) *Cache {
+func NewCache(maxSize uint64, onEvict EvictCallback, logger log.Logger) *Cache {
 	// user config need check maxSize
 	// if maxSize <= 0 {
 	// 	return nil, errors.New("Must provide a positive size")
@@ -80,7 +80,7 @@ func NewCache(maxSize uint64, onEvict EvictCallback) *Cache {
 		evictList: list.New(),
 		onEvict:   onEvict,
 		stats:     &CacheStatistics{},
-		logger:    log.New("INFO", "cache", model.LogBackend),
+		logger:    logger,
 	}
 	return c
 }
@@ -88,6 +88,9 @@ func NewCache(maxSize uint64, onEvict EvictCallback) *Cache {
 // Open cache
 func (c *Cache) Open() {
 	c.enable = true
+	if c.logger == nil {
+		c.logger = log.New()
+	}
 }
 
 // Statistics returns statistics for periodic monitoring.
@@ -184,7 +187,6 @@ func (c *Cache) Get(bucket, key []byte) (value []byte, ok bool) {
 	if b, ok := c.items[string(bucket)]; ok {
 		if ent, ok := b[string(key)]; ok {
 			c.evictList.MoveToFront(ent)
-			c.logger.Debugf("Hit cache, key: %s", string(key))
 			src := ent.Value.(*entry).value
 			dst := make([]byte, len(src))
 			copy(dst, src)

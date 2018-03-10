@@ -366,7 +366,7 @@ func Test_MultiNode_JoinRemove(t *testing.T) {
 func mustNewStore() *Store {
 	path := mustTempDir()
 
-	s := New(path, mustMockTransport())
+	s := New(path, mustMockTransport(), nil)
 	if s == nil {
 		panic("failed to create new store")
 	}

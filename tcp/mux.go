@@ -8,8 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lodastack/log"
-	"github.com/lodastack/registry/model"
+	"github.com/lodastack/store/log"
 )
 
 const (
@@ -63,12 +62,12 @@ type Mux struct {
 	Timeout time.Duration
 
 	// Out-of-band error logger
-	logger *log.Logger
+	logger log.Logger
 }
 
 // NewMux returns a new instance of Mux for ln. If adv is nil,
 // then the addr of ln is used.
-func NewMux(ln net.Listener, adv net.Addr) *Mux {
+func NewMux(ln net.Listener, adv net.Addr, logger log.Logger) *Mux {
 	addr := adv
 	if addr == nil {
 		addr = ln.Addr()
@@ -79,7 +78,7 @@ func NewMux(ln net.Listener, adv net.Addr) *Mux {
 		addr:    addr,
 		m:       make(map[byte]*listener),
 		Timeout: DefaultTimeout,
-		logger:  log.New("INFO", "tcp", model.LogBackend),
+		logger:  logger,
 	}
 }
 

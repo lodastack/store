@@ -327,7 +327,7 @@ func (s *Service) Write(server string, msg interface{}) error {
 	return nil
 }
 
-func (s *Service) handleConn(conn net.Conn) {
+func (s *Service) handleConn(conn net.Conn) error {
 	defer s.wg.Done()
 	defer conn.Close()
 	s.logger.Printf("received connection from %s", conn.RemoteAddr().String())
@@ -337,12 +337,12 @@ func (s *Service) handleConn(conn net.Conn) {
 	d := json.NewDecoder(conn)
 	err := d.Decode(&msg)
 	if err != nil {
-		return
+		return err
 	}
 
 	t, ok := msg["type"]
 	if !ok {
-		return
+		return fmt.Errorf("no message type")
 	}
 
 	switch string(t) {
@@ -371,22 +371,21 @@ func (s *Service) handleConn(conn net.Conn) {
 	case string(TypRemove):
 		s.handleRemove(msg, conn)
 	default:
-		s.logger.Errorf("unknown message type: %s", string(t))
-		return
+		return fmt.Errorf("unknown message type: %s", string(t))
 	}
+	return nil
 }
 
 func (s *Service) writeResponse(resp interface{}, conn net.Conn) {
 	defer conn.Close()
 	b, err := json.Marshal(resp)
 	if err != nil {
-		s.logger.Errorf("marshal resp error: %s", err.Error())
+		s.logger.Printf("marshal resp error: %s", err.Error())
 		return
-	} else {
-		if _, err := conn.Write(b); err != nil {
-			s.logger.Errorf("write resp error: %s", err.Error())
-			return
-		}
+	}
+	if _, err := conn.Write(b); err != nil {
+		s.logger.Printf("write resp error: %s", err.Error())
+		return
 	}
 }
 
@@ -519,7 +518,7 @@ func (s *Service) handleUpdate(msg map[string][]byte, conn net.Conn) {
 
 	if err := s.store.Update(bucket, key, value); err != nil {
 		resp := response{1, err.Error()}
-		s.logger.Errorf("cluster handleUpdate error: %s\n", err.Error())
+		s.logger.Printf("cluster handleUpdate error: %s\n", err.Error())
 		s.writeResponse(resp, conn)
 		return
 	}
