@@ -112,19 +112,19 @@ type Service struct {
 }
 
 // NewService returns a new instance of the cluster service.
-func NewService(bind string, dir string, joinAddr string) (*Service, error) {
+func NewService(opts Options) (*Service, error) {
 	// serve mux TCP
-	ln, err := net.Listen("tcp", bind)
+	ln, err := net.Listen("tcp", opts.Bind)
 	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %s: %s", bind, err.Error())
+		return nil, fmt.Errorf("failed to listen on %s: %s", opts.Bind, err.Error())
 	}
 	mux := tcp.NewMux(ln, nil)
 	go mux.Serve()
 
 	// Start up mux and get transports for cluster.
 	raftTn := mux.Listen(muxRaftHeader)
-	s := store.New(dir, raftTn)
-	if err := s.Open(joinAddr == ""); err != nil {
+	s := store.New(opts.DataDir, raftTn)
+	if err := s.Open(opts.JoinAddr == ""); err != nil {
 		return nil, fmt.Errorf("failed to open store: %s", err.Error())
 	}
 
@@ -187,9 +187,9 @@ func (s *Service) Addr() string {
 
 // JoinCluster joins the cluster via TCP, reachable at addr, to the cluster.
 func (s *Service) JoinCluster(server, addr string) error {
-	return s.Write(server, map[string][]byte{
+	return s.write(server, map[string][]byte{
 		"addr": []byte(addr),
-		"type": TypJoin,
+		"type": typJoin,
 	})
 }
 
