@@ -113,18 +113,22 @@ type Service struct {
 
 // NewService returns a new instance of the cluster service.
 func NewService(opts Options) (*Service, error) {
+	logger := opts.Logger
+	if logger == nil {
+		logger = log.New()
+	}
 	// serve mux TCP
 	ln, err := net.Listen("tcp", opts.Bind)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on %s: %s", opts.Bind, err.Error())
 	}
-	mux := tcp.NewMux(ln, nil, nil)
+	mux := tcp.NewMux(ln, nil, logger)
 	go mux.Serve()
 
 	// Start up mux and get transports for cluster.
 	raftTn := mux.Listen(muxRaftHeader)
-	s := store.New(dir, raftTn, nil)
-	if err := s.Open(joinAddr == ""); err != nil {
+	s := store.New(opts.DataDir, raftTn, logger)
+	if err := s.Open(opts.JoinAddr == ""); err != nil {
 		return nil, fmt.Errorf("failed to open store: %s", err)
 	}
 
@@ -132,9 +136,10 @@ func NewService(opts Options) (*Service, error) {
 	tn := mux.Listen(muxMetaHeader)
 
 	return &Service{
-		tn:    tn,
-		store: s,
-		addr:  tn.Addr(),
+		tn:     tn,
+		store:  s,
+		addr:   tn.Addr(),
+		logger: logger,
 	}, nil
 }
 
