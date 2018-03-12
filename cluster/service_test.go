@@ -2,6 +2,7 @@ package cluster_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/lodastack/store/cluster"
 )
@@ -39,7 +40,6 @@ func Example() {
 	}
 }
 
-/*
 func Test_NewService_leader(t *testing.T) {
 	opts := cluster.Options{
 		// store bind TCP listen
@@ -65,4 +65,3 @@ func Test_NewService_leader(t *testing.T) {
 		t.Fatalf("get nodes failed: %s", err.Error())
 	}
 }
-*/
