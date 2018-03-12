@@ -14,6 +14,8 @@ type Options struct {
 	// Optional.
 	JoinAddr string
 
-	// Logger is cluster store logger
+	// Logger logs store status.
+	// Default write to stdout.
+	// Optional.
 	Logger log.Logger
 }
