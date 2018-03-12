@@ -15,15 +15,16 @@ import (
 )
 
 func start() error {
-	// store bind TCP listen
-	clusterBind := "127.0.0.1:9000"
-	// store data dir
-	dataDir     := "/tmp/store"
-	// any node in exist cluster
-	joinAddr    := "10.0.0.1:9000"
-	// joinAddr := ""
+	opts := cluster.Options{
+		// store bind TCP listen
+		Bind: "127.0.0.1:9000",
+		// store data dir
+		DataDir: "/tmp/store",
+		// any node in exist cluster
+		JoinAddr: "10.0.0.1:9000",
+	}
 
-	cs, err := cluster.NewService(clusterBind, dataDir, joinAddr)
+	cs, err := cluster.NewService(opts)
 	if err != nil {
 		return fmt.Errorf("new store service failed: %s", err.Error())
 	}

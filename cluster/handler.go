@@ -12,25 +12,25 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-var ErrNotLeader = raft.ErrNotLeader
+var errNotLeader = raft.ErrNotLeader
 
 var (
-	TypCBucket         = []byte("createrBucket")
-	TypRBucket         = []byte("removeBucket")
-	TypUpdate          = []byte("update")
-	TypBatch           = []byte("batch")
-	TypCBucketNotExist = []byte("createBucketIfNotExist")
-	TypRkey            = []byte("removekey")
+	typCBucket         = []byte("createrBucket")
+	typRBucket         = []byte("removeBucket")
+	typUpdate          = []byte("update")
+	typBatch           = []byte("batch")
+	typCBucketNotExist = []byte("createBucketIfNotExist")
+	typRkey            = []byte("removekey")
 
-	TypSetSession = []byte("setsession")
-	TypDelSession = []byte("delsession")
+	typSetSession = []byte("setsession")
+	typDelSession = []byte("delsession")
 
-	TypJoin   = []byte("join")
-	TypRemove = []byte("remove")
-	TypPeer   = []byte("peer")
+	typJoin   = []byte("join")
+	typRemove = []byte("remove")
+	typPeer   = []byte("peer")
 
-	Leader   = "Leader"
-	Follower = "Follower"
+	leader   = "Leader"
+	follower = "Follower"
 )
 
 type response struct {
@@ -42,11 +42,11 @@ type response struct {
 func (s *Service) SetPeer(raftAddr, apiAddr string) error {
 	// Try the local store. It might be the leader.
 	err := s.store.UpdateAPIPeers(map[string]string{raftAddr: apiAddr})
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"api":  []byte(apiAddr),
 			"raft": []byte(raftAddr),
-			"type": TypPeer,
+			"type": typPeer,
 		})
 	}
 	return err
@@ -56,15 +56,16 @@ func (s *Service) SetPeer(raftAddr, apiAddr string) error {
 func (s *Service) Join(addr string) error {
 	// Try the local store. It might be the leader.
 	err := s.store.Join(addr)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"addr": []byte(addr),
-			"type": TypJoin,
+			"type": typJoin,
 		})
 	}
 	return err
 }
 
+// Peers returns cluster roles.
 func (s *Service) Peers() (map[string]map[string]string, error) {
 	peerMap := make(map[string]map[string]string)
 	peers, err := s.store.APIPeers()
@@ -77,9 +78,9 @@ func (s *Service) Peers() (map[string]map[string]string, error) {
 		peerMap[raftAddr] = make(map[string]string)
 		peerMap[raftAddr]["api"] = apiAddr
 		if raftAddr == Leadership {
-			peerMap[raftAddr]["role"] = Leader
+			peerMap[raftAddr]["role"] = leader
 		} else {
-			peerMap[raftAddr]["role"] = Follower
+			peerMap[raftAddr]["role"] = follower
 		}
 	}
 	return peerMap, nil
@@ -99,10 +100,10 @@ func (s *Service) WaitForLeader(timeout time.Duration) (string, error) {
 func (s *Service) Remove(addr string) error {
 	// Try the local store. It might be the leader.
 	err := s.store.Remove(addr)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"addr": []byte(addr),
-			"type": TypRemove,
+			"type": typRemove,
 		})
 	}
 	return err
@@ -112,23 +113,23 @@ func (s *Service) Remove(addr string) error {
 func (s *Service) CreateBucket(name []byte) error {
 	// Try the local store. It might be the leader.
 	err := s.store.CreateBucket(name)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"name": name,
-			"type": TypCBucket,
+			"type": typCBucket,
 		})
 	}
 	return err
 }
 
-// CreateBucket will create bucket via the cluster if not exist.
+// CreateBucketIfNotExist will create bucket via the cluster if not exist.
 func (s *Service) CreateBucketIfNotExist(name []byte) error {
 	// Try the local store. It might be the leader.
 	err := s.store.CreateBucketIfNotExist(name)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"name": name,
-			"type": TypCBucketNotExist,
+			"type": typCBucketNotExist,
 		})
 	}
 	return err
@@ -138,16 +139,16 @@ func (s *Service) CreateBucketIfNotExist(name []byte) error {
 func (s *Service) RemoveBucket(name []byte) error {
 	// Try the local store. It might be the leader.
 	err := s.store.RemoveBucket(name)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"name": name,
-			"type": TypRBucket,
+			"type": typRBucket,
 		})
 	}
 	return err
 }
 
-// Get returns the value for the given key.
+// View returns the value for the given key.
 func (s *Service) View(bucket, key []byte) ([]byte, error) {
 	return s.store.View(bucket, key)
 }
@@ -161,11 +162,11 @@ func (s *Service) ViewPrefix(bucket, keyPrefix []byte) (map[string][]byte, error
 func (s *Service) RemoveKey(bucket, key []byte) error {
 	// Try the local store. It might be the leader.
 	err := s.store.RemoveKey(bucket, key)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"key":    key,
 			"bucket": bucket,
-			"type":   TypRkey,
+			"type":   typRkey,
 		})
 	}
 	return err
@@ -175,12 +176,12 @@ func (s *Service) RemoveKey(bucket, key []byte) error {
 func (s *Service) Update(bucket []byte, key []byte, value []byte) error {
 	// Try the local store. It might be the leader.
 	err := s.store.Update(bucket, key, value)
-	if err == ErrNotLeader {
-		return s.WriteLeader(map[string][]byte{
+	if err == errNotLeader {
+		return s.writeLeader(map[string][]byte{
 			"key":    key,
 			"value":  value,
 			"bucket": bucket,
-			"type":   TypUpdate,
+			"type":   typUpdate,
 		})
 	}
 	return err
@@ -190,7 +191,7 @@ func (s *Service) Update(bucket []byte, key []byte, value []byte) error {
 func (s *Service) Batch(rows []model.Row) error {
 	// Try the local store. It might be the leader.
 	err := s.store.Batch(rows)
-	if err == ErrNotLeader {
+	if err == errNotLeader {
 		// Don't use binary to encode?
 		// https://github.com/golang/go/issues/478
 		buf := &bytes.Buffer{}
@@ -199,9 +200,9 @@ func (s *Service) Batch(rows []model.Row) error {
 			return err
 		}
 
-		return s.WriteLeader(map[string][]byte{
+		return s.writeLeader(map[string][]byte{
 			"rows": buf.Bytes(),
-			"type": TypBatch,
+			"type": typBatch,
 		})
 	}
 	return err
@@ -216,7 +217,7 @@ func (s *Service) GetSession(key interface{}) interface{} {
 func (s *Service) SetSession(key, value interface{}) error {
 	// Try the local store. It might be the leader.
 	err := s.store.SetSession(key, value)
-	if err == ErrNotLeader {
+	if err == errNotLeader {
 		var keyStr, valueStr string
 		var ok bool
 		if keyStr, ok = key.(string); !ok {
@@ -225,28 +226,28 @@ func (s *Service) SetSession(key, value interface{}) error {
 		if valueStr, ok = value.(string); !ok {
 			return fmt.Errorf("session value type error, not a string")
 		}
-		return s.WriteLeader(map[string][]byte{
+		return s.writeLeader(map[string][]byte{
 			"key":   []byte(keyStr),
 			"value": []byte(valueStr),
-			"type":  TypSetSession,
+			"type":  typSetSession,
 		})
 	}
 	return err
 }
 
-// Delsession delete the session from given key.
+// DelSession delete the session from given key.
 func (s *Service) DelSession(key interface{}) error {
 	// Try the local store. It might be the leader.
 	err := s.store.DelSession(key)
-	if err == ErrNotLeader {
+	if err == errNotLeader {
 		var keyStr string
 		var ok bool
 		if keyStr, ok = key.(string); !ok {
 			return fmt.Errorf("session key type error, not a string")
 		}
-		return s.WriteLeader(map[string][]byte{
+		return s.writeLeader(map[string][]byte{
 			"key":  []byte(keyStr),
-			"type": TypDelSession,
+			"type": typDelSession,
 		})
 	}
 	return err
@@ -262,7 +263,7 @@ func (s *Service) Restore(Backupfile string) error {
 	return s.store.Restore(Backupfile)
 }
 
-func (s *Service) WriteLeader(msg interface{}) error {
+func (s *Service) writeLeader(msg interface{}) error {
 	// Try talking to the leader over the network.
 	if leader := s.store.Leader(); leader == "" {
 		return fmt.Errorf("no leader available")
@@ -297,7 +298,7 @@ func (s *Service) WriteLeader(msg interface{}) error {
 }
 
 // Write writes TCP msg to given server, for TCP join cluster
-func (s *Service) Write(server string, msg interface{}) error {
+func (s *Service) write(server string, msg interface{}) error {
 	conn, err := s.tn.Dial(server, connectionTimeout)
 	if err != nil {
 		return err
@@ -346,29 +347,29 @@ func (s *Service) handleConn(conn net.Conn) error {
 	}
 
 	switch string(t) {
-	case string(TypPeer):
+	case string(typPeer):
 		s.handleSetPeer(msg, conn)
-	case string(TypCBucket):
+	case string(typCBucket):
 		s.handleCreateBucket(msg, conn)
-	case string(TypCBucketNotExist):
+	case string(typCBucketNotExist):
 		s.handleCreateBucketIfNotExist(msg, conn)
-	case string(TypRBucket):
+	case string(typRBucket):
 		s.handleRemoveBucket(msg, conn)
-	case string(TypUpdate):
+	case string(typUpdate):
 		s.handleUpdate(msg, conn)
-	case string(TypBatch):
+	case string(typBatch):
 		s.handleBatch(msg, conn)
-	case string(TypRkey):
+	case string(typRkey):
 		s.handleRemoveKey(msg, conn)
 
-	case string(TypSetSession):
+	case string(typSetSession):
 		s.handleSetSession(msg, conn)
-	case string(TypDelSession):
+	case string(typDelSession):
 		s.handleDelSession(msg, conn)
 
-	case string(TypJoin):
+	case string(typJoin):
 		s.handleJoin(msg, conn)
-	case string(TypRemove):
+	case string(typRemove):
 		s.handleRemove(msg, conn)
 	default:
 		return fmt.Errorf("unknown message type: %s", string(t))
