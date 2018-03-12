@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lodastack/log"
+	"github.com/lodastack/store/log"
 )
 
 const (
@@ -366,11 +366,10 @@ func Test_MultiNode_JoinRemove(t *testing.T) {
 func mustNewStore() *Store {
 	path := mustTempDir()
 
-	s := New(path, mustMockTransport(), nil)
+	s := New(path, mustMockTransport(), log.New())
 	if s == nil {
 		panic("failed to create new store")
 	}
-	s.logger = log.GetLogger()
 	s.cache.logger = s.logger
 	return s
 }

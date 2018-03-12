@@ -14,45 +14,29 @@ import (
 	"github.com/lodastack/store/cluster"
 )
 
-func start() error {
+func main() {
 	opts := cluster.Options{
 		// store bind TCP listen
 		Bind: "127.0.0.1:9000",
 		// store data dir
 		DataDir: "/tmp/store",
-		// any node in exist cluster
-		JoinAddr: "10.0.0.1:9000",
 	}
 
 	cs, err := cluster.NewService(opts)
 	if err != nil {
-		return fmt.Errorf("new store service failed: %s", err.Error())
+		fmt.Printf("new store service failed: %s", err.Error())
 	}
 
 	if err := cs.Open(); err != nil {
-		return fmt.Errorf("failed to open cluster service failed: %s", err.Error())
+		fmt.Printf("failed to open cluster service failed: %s", err.Error())
 	}
 
 	// If join was specified, make the join request.
 	nodes, err := cs.Nodes()
 	if err != nil {
-		return fmt.Errorf("get nodes failed: %s", err.Error())
+		fmt.Printf("get nodes failed: %s", err.Error())
 	}
-
-	// if exist a raftdb, or exist a cluster, don't join any leader.
-	if joinAddr != "" && len(nodes) <= 1 {
-		if err := cs.JoinCluster(joinAddr, clusterBind); err != nil {
-			return fmt.Errorf("failed to join node at %s: %s", joinAddr, err.Error())
-		}
-	}
-
-	// wait for leader
-	l, err := cs.WaitForLeader(waitLeaderTimeout)
-	if err != nil || l == "" {
-		return fmt.Errorf("wait leader failed: %s", err.Error())
-	}
-	fmt.Printf("cluster leader is: %s", l)
-
+	fmt.Println(nodes)
 }
 
 ```
