@@ -10,11 +10,12 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/lodastack/log"
+	"github.com/lodastack/store/log"
 )
 
 // Ensure the muxer can split a listener's connections across multiple listeners.
 func TestMux(t *testing.T) {
+	log := log.New()
 	if err := quick.Check(func(n uint8, msg []byte) bool {
 		if testing.Verbose() {
 			if len(msg) == 0 {
@@ -31,9 +32,8 @@ func TestMux(t *testing.T) {
 		defer tcpListener.Close()
 
 		// Setup muxer & listeners.
-		mux := NewMux(tcpListener, nil, nil)
+		mux := NewMux(tcpListener, nil, log)
 		mux.Timeout = 200 * time.Millisecond
-		mux.logger = log.GetLogger()
 
 		for i := uint8(0); i < n; i++ {
 			ln := mux.Listen(byte(i))
@@ -126,11 +126,8 @@ func TestMux_Advertise(t *testing.T) {
 		Addr: "rqlite.com:8081",
 	}
 
-	mux := NewMux(tcpListener, addr, nil)
+	mux := NewMux(tcpListener, addr, log.New())
 	mux.Timeout = 200 * time.Millisecond
-	if !testing.Verbose() {
-		mux.logger = log.GetLogger()
-	}
 
 	layer := mux.Listen(1)
 	if layer.Addr().String() != addr.Addr {
