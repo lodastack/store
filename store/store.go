@@ -145,6 +145,9 @@ type Store struct {
 
 // New returns a new Store.
 func New(path string, tn Transport, logger log.Logger) *Store {
+	if logger == nil {
+		logger = log.New()
+	}
 	return &Store{
 		Dir:              path,
 		raftBind:         tn.Addr().String(),
@@ -196,10 +199,10 @@ func (s *Store) Open(enableSingle bool) error {
 
 	// Setup Raft configuration.
 	config := s.raftConfig()
-	config.Logger = stdlog.New(os.Stderr, "raft", stdlog.Lshortfile)
+	config.Logger = stdlog.New(os.Stdout, "raft", stdlog.Lshortfile)
 
 	// Setup Raft communication.
-	transport := raft.NewNetworkTransport(s.raftTransport, 3, 10*time.Second, os.Stderr)
+	transport := raft.NewNetworkTransport(s.raftTransport, 3, 10*time.Second, os.Stdout)
 
 	// Create peer storage if necesssary.
 	if s.peerStore == nil {

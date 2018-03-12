@@ -16,17 +16,17 @@ func main() {
 
 	cs, err := cluster.NewService(opts)
 	if err != nil {
-		fmt.Printf("new store service failed: %s", err.Error())
+		fmt.Printf("new store service failed: %s", err)
 	}
 
 	if err := cs.Open(); err != nil {
-		fmt.Printf("failed to open cluster service failed: %s", err.Error())
+		fmt.Printf("failed to open cluster service failed: %s", err)
 	}
 
 	// If join was specified, make the join request.
 	nodes, err := cs.Nodes()
 	if err != nil {
-		fmt.Printf("get nodes failed: %s", err.Error())
+		fmt.Printf("get nodes failed: %s", err)
 	}
 	fmt.Println(nodes)
 }

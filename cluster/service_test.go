@@ -20,23 +20,23 @@ func Example() {
 
 	cs, err := cluster.NewService(opts)
 	if err != nil {
-		fmt.Printf("new store service failed: %s", err.Error())
+		fmt.Printf("new store service failed: %s", err)
 	}
 
 	if err := cs.Open(); err != nil {
-		fmt.Printf("failed to open cluster service failed: %s", err.Error())
+		fmt.Printf("failed to open cluster service failed: %s", err)
 	}
 
 	// If join was specified, make the join request.
 	nodes, err := cs.Nodes()
 	if err != nil {
-		fmt.Printf("get nodes failed: %s", err.Error())
+		fmt.Printf("get nodes failed: %s", err)
 	}
 
 	// if exist a raftdb, or exist a cluster, don't join any leader.
 	if opts.JoinAddr != "" && len(nodes) <= 1 {
 		if err := cs.JoinCluster(opts.JoinAddr, opts.Bind); err != nil {
-			fmt.Printf("failed to join node at %s: %s", opts.JoinAddr, err.Error())
+			fmt.Printf("failed to join node at %s: %s", opts.JoinAddr, err)
 		}
 	}
 }
@@ -51,17 +51,17 @@ func Test_NewService_leader(t *testing.T) {
 
 	cs, err := cluster.NewService(opts)
 	if err != nil {
-		t.Fatalf("new store service failed: %s", err.Error())
+		t.Fatalf("new store service failed: %s", err)
 	}
 
 	if err := cs.Open(); err != nil {
-		t.Fatalf("failed to open cluster service failed: %s", err.Error())
+		t.Fatalf("failed to open cluster service failed: %s", err)
 	}
 
 	// If join was specified, make the join request.
 	_, err = cs.Nodes()
 	if err != nil {
-		t.Fatalf("get nodes failed: %s", err.Error())
+		t.Fatalf("get nodes failed: %s", err)
 	}
 	cs.Close()
 }
