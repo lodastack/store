@@ -19,7 +19,7 @@ var key3 = []byte("test-key3")
 var value3 = []byte("test-value789")
 
 func TestCache(t *testing.T) {
-	c := NewCache(10, nil)
+	c := NewCache(10, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {
@@ -32,7 +32,7 @@ func TestCache(t *testing.T) {
 }
 
 func Test_Add_Get(t *testing.T) {
-	c := NewCache(1024, nil)
+	c := NewCache(1024, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {
@@ -54,7 +54,7 @@ func Test_Add_Get(t *testing.T) {
 }
 
 func Test_LRU_FullMem(t *testing.T) {
-	c := NewCache(40, nil)
+	c := NewCache(40, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {
@@ -82,7 +82,7 @@ func Test_LRU_FullMem(t *testing.T) {
 }
 
 func Test_LRU(t *testing.T) {
-	c := NewCache(70, nil)
+	c := NewCache(70, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {
@@ -118,7 +118,7 @@ func Test_LRU(t *testing.T) {
 }
 
 func Test_RemoveBucket(t *testing.T) {
-	c := NewCache(1024, nil)
+	c := NewCache(1024, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {
@@ -148,7 +148,7 @@ func Test_RemoveBucket(t *testing.T) {
 }
 
 func Test_Remove(t *testing.T) {
-	c := NewCache(1024, nil)
+	c := NewCache(1024, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {
@@ -184,7 +184,7 @@ func Test_Remove(t *testing.T) {
 }
 
 func Test_Purge(t *testing.T) {
-	c := NewCache(40, nil)
+	c := NewCache(40, nil, nil)
 	c.Open()
 	c.logger = log.GetLogger()
 	// if err != nil {

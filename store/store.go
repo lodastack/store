@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lodastack/log"
+	"github.com/lodastack/store/log"
 	"github.com/lodastack/store/model"
 
 	"github.com/boltdb/bolt"
@@ -140,11 +140,11 @@ type Store struct {
 	SnapshotThreshold uint64
 	HeartbeatTimeout  time.Duration
 
-	logger *log.Logger
+	logger log.Logger
 }
 
 // New returns a new Store.
-func New(path string, tn Transport) *Store {
+func New(path string, tn Transport, logger log.Logger) *Store {
 	return &Store{
 		Dir:              path,
 		raftBind:         tn.Addr().String(),
@@ -152,9 +152,9 @@ func New(path string, tn Transport) *Store {
 		HeartbeatTimeout: heartbeatTimeout,
 		meta:             newClusterMeta(),
 		dbPath:           filepath.Join(path, boltFile),
-		cache:            NewCache(cacheMaxMemorySize, nil),
+		cache:            NewCache(cacheMaxMemorySize, nil, logger),
 		session:          NewSession(),
-		logger:           log.New("INFO", "store", model.LogBackend),
+		logger:           logger,
 	}
 }
 
@@ -215,7 +215,7 @@ func (s *Store) Open(enableSingle bool) error {
 	// Allow the node to entry single-mode, potentially electing itself, if
 	// explicitly enabled and there is only 1 node in the cluster already.
 	if enableSingle && len(peers) <= 1 {
-		s.logger.Println("enabling single-node mode")
+		s.logger.Printf("enabling single-node mode")
 		config.EnableSingleNode = true
 		config.DisableBootstrapAfterElect = false
 	}
@@ -446,14 +446,12 @@ func (s *Store) ViewPrefix(bucket, keyPrefix []byte) (map[string][]byte, error) 
 	result := make(map[string][]byte, 0)
 	tx, err := s.db.Begin(true)
 	if err != nil {
-		s.logger.Error("begin db fail: ", err.Error())
 		return result, err
 	}
 	defer tx.Rollback()
 
 	b := tx.Bucket(bucket)
 	if b == nil {
-		s.logger.Error("failed to copen bucket: ", string(bucket))
 		return result, ErrBucketNotFound
 	}
 	c := b.Cursor()
@@ -838,7 +836,6 @@ type fsmGenericResponse struct {
 func (f *fsm) Apply(l *raft.Log) interface{} {
 	var c command
 	if err := json.Unmarshal(l.Data, &c); err != nil {
-		f.logger.Printf("failed to unmarshal command: %s", err.Error())
 		return &fsmGenericResponse{error: err}
 	}
 
@@ -875,7 +872,6 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		return &fsmGenericResponse{error: err}
 	default:
 		err := fmt.Errorf("unrecognized command op: %v", c.Typ)
-		f.logger.Printf(err.Error())
 		return &fsmGenericResponse{error: err}
 	}
 }
@@ -910,7 +906,6 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 	fsm := &fsmSnapshot{}
 	fsm.database, err = ioutil.ReadFile(snapFile.Name())
 	if err != nil {
-		log.Printf("Failed to read database for snapshot: %s", err.Error())
 		return nil, err
 	}
 
@@ -1202,11 +1197,7 @@ func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 		}
 
 		// Close the sink.
-		if err := sink.Close(); err != nil {
-			return err
-		}
-
-		return nil
+		return sink.Close()
 	}()
 
 	if err != nil {
