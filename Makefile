@@ -4,7 +4,7 @@ fmt:
 	gofmt -l -w -s */
 
 dep:fmt
-	gdm restore
+	go mod download
 
 test:dep
 	go test -v ./...
