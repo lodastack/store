@@ -1,0 +1,21 @@
+syntax = "proto3";
+package pb;
+
+message Command {
+    enum CommandType {
+        UPDATE = 0;                                 // Commands which query the database.
+        BATCH = 1;                                  // Commands which modify the database.
+        CREATE_BUCKET = 2;                          // Commands which create the bucket.
+        REMOVE_BUCKET = 3;                          // Commands which remove the bucket.
+        REMOVE_KEY = 4;                             // Commands which remove the key.
+        CREATE_BUCKET_IFNOTEXIST = 5;               // Commands which create bucket if it not exist.
+        SET_SESSION = 6;                            // Commands which set a session.
+        DEL_SESSION = 7;                            // Commands which delete a session key.
+
+        SET_PEER = 8;                               // Command which node join.
+        RESTORE = 9;
+    }
+
+    CommandType type = 1;
+    bytes sub = 2;
+}

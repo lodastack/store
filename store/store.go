@@ -23,8 +23,10 @@ import (
 
 	"github.com/lodastack/store/log"
 	"github.com/lodastack/store/model"
+	"github.com/lodastack/store/store/proto"
 
 	"github.com/boltdb/bolt"
+	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/hashicorp/raft-boltdb"
 )
@@ -49,22 +51,6 @@ const (
 	cacheMaxMemorySize = 1024 * 1024 * 50
 )
 
-type commandType int
-
-const (
-	update                 commandType = iota // Commands which query the database.
-	batch                                     // Commands which modify the database.
-	createBucket                              // Commands which create the bucket.
-	removeBucket                              // Commands which remove the bucket.
-	removeKey                                 // Commands which remove the key.
-	createBucketIfNotExist                    // Commands which create bucket if it not exist.
-	setSession                                // Commands which set a session.
-	delSession                                // Commands which delete a session key.
-
-	setPeer // Command which node join.
-	restore
-)
-
 // ClusterState defines the possible Raft states the current node can be in
 type ClusterState int
 
@@ -77,19 +63,14 @@ const (
 	Unknown
 )
 
-type command struct {
-	Typ commandType     `json:"typ,omitempty"`
-	Sub json.RawMessage `json:"sub,omitempty"`
-}
-
-func newCommand(t commandType, d interface{}) (*command, error) {
+func newCommand(t pb.Command_CommandType, d interface{}) (*pb.Command, error) {
 	b, err := json.Marshal(d)
 	if err != nil {
 		return nil, err
 	}
-	return &command{
-		Typ: t,
-		Sub: b,
+	return &pb.Command{
+		Type: t,
+		Sub:  b,
 	}, nil
 
 }
@@ -423,12 +404,12 @@ func (s *Store) Update(bucket []byte, key []byte, value []byte) error {
 		Batch: rows,
 	}
 
-	c, err := newCommand(update, d)
+	c, err := newCommand(pb.Command_UPDATE, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -481,12 +462,12 @@ func (s *Store) Batch(rows []model.Row) error {
 		Batch: rows,
 	}
 
-	c, err := newCommand(batch, d)
+	c, err := newCommand(pb.Command_BATCH, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -512,12 +493,12 @@ func (s *Store) CreateBucket(name []byte) error {
 		Name: name,
 	}
 
-	c, err := newCommand(createBucket, d)
+	c, err := newCommand(pb.Command_CREATE_BUCKET, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -543,12 +524,12 @@ func (s *Store) CreateBucketIfNotExist(name []byte) error {
 		Name: name,
 	}
 
-	c, err := newCommand(createBucketIfNotExist, d)
+	c, err := newCommand(pb.Command_CREATE_BUCKET_IFNOTEXIST, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -580,12 +561,12 @@ func (s *Store) RemoveKey(bucket, key []byte) error {
 		Batch: rows,
 	}
 
-	c, err := newCommand(removeKey, d)
+	c, err := newCommand(pb.Command_REMOVE_KEY, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -611,12 +592,12 @@ func (s *Store) RemoveBucket(name []byte) error {
 		Name: name,
 	}
 
-	c, err := newCommand(removeBucket, d)
+	c, err := newCommand(pb.Command_REMOVE_BUCKET, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -653,12 +634,12 @@ func (s *Store) SetSession(k, v interface{}) error {
 		Value: v,
 	}
 
-	c, err := newCommand(setSession, d)
+	c, err := newCommand(pb.Command_SET_SESSION, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -684,12 +665,12 @@ func (s *Store) DelSession(k interface{}) error {
 		Key: k,
 	}
 
-	c, err := newCommand(delSession, d)
+	c, err := newCommand(pb.Command_DEL_SESSION, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -756,12 +737,12 @@ func (s *Store) Restore(backupfile string) error {
 		Name: []byte(backupfile),
 	}
 
-	c, err := newCommand(restore, d)
+	c, err := newCommand(pb.Command_RESTORE, d)
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -816,11 +797,11 @@ func (s *Store) UpdateAPIPeers(peers map[string]string) error {
 		return ErrNotLeader
 	}
 
-	c, err := newCommand(setPeer, peers)
+	c, err := newCommand(pb.Command_SET_PEER, peers)
 	if err != nil {
 		return err
 	}
-	b, err := json.Marshal(c)
+	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -837,44 +818,44 @@ type fsmGenericResponse struct {
 
 // Apply applies a Raft log entry to the key-value store.
 func (f *fsm) Apply(l *raft.Log) interface{} {
-	var c command
-	if err := json.Unmarshal(l.Data, &c); err != nil {
+	var c pb.Command
+	if err := proto.Unmarshal(l.Data, &c); err != nil {
 		return &fsmGenericResponse{error: err}
 	}
 
-	switch c.Typ {
-	case update:
+	switch c.Type {
+	case pb.Command_UPDATE:
 		err := f.applyUpdate(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case batch:
+	case pb.Command_BATCH:
 		err := f.applyBatch(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case createBucket:
+	case pb.Command_CREATE_BUCKET:
 		err := f.applyCreateBucket(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case removeKey:
+	case pb.Command_REMOVE_KEY:
 		err := f.applyRemoveKey(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case removeBucket:
+	case pb.Command_REMOVE_BUCKET:
 		err := f.applyRemoveBucket(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case createBucketIfNotExist:
+	case pb.Command_CREATE_BUCKET_IFNOTEXIST:
 		err := f.applyCreateBucketIfNotExist(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case setSession:
+	case pb.Command_SET_SESSION:
 		err := f.applySetSession(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case delSession:
+	case pb.Command_DEL_SESSION:
 		err := f.applyDelSession(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case setPeer:
+	case pb.Command_SET_PEER:
 		err := f.applySetPeer(c.Sub)
 		return &fsmGenericResponse{error: err}
-	case restore:
+	case pb.Command_RESTORE:
 		err := f.applyRestore(c.Sub)
 		return &fsmGenericResponse{error: err}
 	default:
-		err := fmt.Errorf("unrecognized command op: %v", c.Typ)
+		err := fmt.Errorf("unrecognized command op: %v", c.Type)
 		return &fsmGenericResponse{error: err}
 	}
 }
