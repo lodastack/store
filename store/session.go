@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-const maximumOnline = 3
+const maximumOnline = 100
 
 // Session interface
 // key is user token, value is user id.
